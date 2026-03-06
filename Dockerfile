@@ -2,7 +2,11 @@ FROM ubuntu:18.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+# Use Yandex mirror for apt
+RUN echo "deb http://mirror.yandex.ru/ubuntu/ bionic main restricted universe multiverse\n\
+deb http://mirror.yandex.ru/ubuntu/ bionic-updates main restricted universe multiverse\n\
+deb http://mirror.yandex.ru/ubuntu/ bionic-security main restricted universe multiverse" > /etc/apt/sources.list \
+    && apt-get update && apt-get install -y \
     xfce4 xfce4-goodies xfce4-terminal tightvncserver wget curl gnupg2 sudo \
     openjdk-8-jre icedtea-netx \
     libasound2 libgtk2.0-0 libdbus-glib-1-2 libxt6 libxss1 libnss3 libxrender1 libxcomposite1 \
@@ -44,10 +48,12 @@ RUN mkdir -p /home/docker/.vnc && \
     echo '\nstartxfce4 &' >> /home/docker/.vnc/xstartup && \
     chmod +x /home/docker/.vnc/xstartup
 
-# Download and install Firefox 45 ESR manually
+# Download and install Firefox 45 ESR from Mozilla archive (ftp.mozilla.org often fails in Docker)
 RUN mkdir -p /home/docker/firefox45 && \
-    wget -qO- https://ftp.mozilla.org/pub/firefox/releases/45.9.0esr/linux-x86_64/en-US/firefox-45.9.0esr.tar.bz2 \
-    | tar -xj -C /home/docker/firefox45 --strip-components=1
+    wget -q --no-check-certificate --tries=3 -O /tmp/firefox-45.9.0esr.tar.bz2 \
+        https://archive.mozilla.org/pub/firefox/releases/45.9.0esr/linux-x86_64/en-US/firefox-45.9.0esr.tar.bz2 && \
+    tar -xjf /tmp/firefox-45.9.0esr.tar.bz2 -C /home/docker/firefox45 --strip-components=1 && \
+    rm /tmp/firefox-45.9.0esr.tar.bz2
 
 # Set USER env var for VNC
 ENV USER=docker
@@ -55,11 +61,11 @@ ENV USER=docker
 # Set PATH to use our Firefox build
 ENV PATH="/home/docker/firefox45:${PATH}"
 
-# Copy Oracle JRE tarball into image
-COPY jdk-8u202-linux-x64.tar.gz /tmp/
-
-# Extract it and set up environment
-RUN tar -xzf /tmp/jdk-8u202-linux-x64.tar.gz -C /tmp
+# Download and extract Oracle JRE inside image
+RUN wget -q --no-check-certificate --tries=3 -O /tmp/jdk-8u202-linux-x64.tar.gz https://mirrors.huaweicloud.com/java/jdk/8u202-b08/jdk-8u202-linux-x64.tar.gz \
+    && echo "0029351f7a946f6c05b582100c7d45b7  /tmp/jdk-8u202-linux-x64.tar.gz" | md5sum -c - \
+    && tar -xzf /tmp/jdk-8u202-linux-x64.tar.gz -C /tmp \
+    && rm /tmp/jdk-8u202-linux-x64.tar.gz
 
 ENV JAVA_HOME=/tmp/jdk1.8.0_202/jre/
 ENV PATH=$JAVA_HOME/bin:$PATH

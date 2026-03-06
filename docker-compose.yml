@@ -1,0 +1,10 @@
+services:
+  java-applet:
+    build:
+      context: .
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    ports:
+      - "1000:5901"
+    container_name: java-applet-container
